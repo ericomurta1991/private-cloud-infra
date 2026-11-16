@@ -1,0 +1,47 @@
+services:
+  wireguard:
+    image: lscr.io/linuxserver/wireguard:latest
+    container_name: wireguard
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=${TZ}
+      - SERVERURL=auto
+      - SERVERPORT=${VPN_PORT}
+      - PEERS=${VPN_PEERS}
+      - INTERNAL_SUBNET=10.13.13.0
+    volumes:
+      - ./config/wireguard:/config
+      - /lib/modules:/lib/modules
+    ports:
+      - "${VPN_PORT}:51820/udp"
+    sysctls:
+      - net.ipv4.conf.all.src_valid_mark=1
+    networks:
+      vpn_net:
+        ipv4_address: 10.13.13.2
+    restart: unless-stopped
+
+  samba:
+    image: dperson/samba
+    container_name: samba
+    environment:
+      - USERID=1000
+      - GROUPID=1000
+    volumes:
+      - ./dados-compartilhados:/mount
+    command: '-u "${SAMBA_USER};${SAMBA_PASS}" -s "ArquivosPrivados;/mount;yes;no;no;${SAMBA_USER}"'
+    networks:
+      vpn_net:
+        ipv4_address: 10.13.13.3
+    restart: unless-stopped
+
+networks:
+  vpn_net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.13.13.0/24
